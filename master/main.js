@@ -11,9 +11,12 @@ const fluidb = require('fluidb'),
     WebSocketServer = Ws.Server,
     port = config.port || 1337,
     vorpal = require('vorpal')(),
+    ProgressBar = require('progress'),
     wss = new WebSocketServer({
         port: port
     });
+
+let counter = 0;
 
 var transmit = function(data) {
     for (var i = 0; i < connections.length; i++) {
@@ -27,12 +30,9 @@ var transmit = function(data) {
     }
 };
 
-let counter = 0;
-
 let cmd = () => {
     vorpal
-        .delimiter('>>> ')
-        .show();
+        .show().ui.delimiter('>>> ');
 }
 
 var keepalive = setInterval(function() {
@@ -64,23 +64,55 @@ wss.on('connection', function(ws) {
     })
 
     ws.on('message', function(msg) {
+        msg = JSON.parse(msg);
         transmit({
             type: "confirm",
             response: "got message."
         })
-        counter++;
-        //vorpal.log(counter)
-        if (counter == connections.length) {
-            counter = 0;
-            vorpal.log(">> command successfully completed.")
+        switch (msg.type) {
+            case "confirm":
+                counter++;
+                vorpal.ui
+                    .delimiter('>> ')
+                    .redraw(`[${counter} / ${connections.length}] constructs have completed execution.`)
+                    .delimiter('>>> ')
+                if (counter == connections.length) {
+                    vorpal.ui.redraw.done();
+                    //vorpal.log(`>> command completed successfully.`);
+                }
+                break;
         }
     })
 });
 
+
+process.stdout.write('\033c');
+
 vorpal
-    .log('>> dyson is ready for constructs!')
-    .catch('[command...]', 'Execute a command.')
+    .log(`====================\n      DysonIO       \n     r1-master      \n====================\n>> ready for constructs!`)
+    .mode('>')
+    //.delimiter('')
+    .action(function(command, callback) {
+        transmit({
+            "type": "cmd",
+            "data": command
+        });
+        counter = 0;
+        callback();
+    })
+    .on('client_command_executed', function(evt) {
+        process.exit(0)
+    });
+
+vorpal
+    .exec('>');
+
+/*
+vorpal
+    .log(`====================\n      DysonIO       \n     r1-master      \n====================\n>> ready for constructs!`)
+    //.catch('[command...] <stuff...>', 'Execute a command.')
     .action(function(args, callback) {
+        console.log(args);
         transmit({
             "type": "cmd",
             "data": args
@@ -88,3 +120,12 @@ vorpal
         counter = 0;
         callback();
     });
+
+/*
+vorpal
+    .catch('clear', 'Execute a command.')
+    .action(function(args, callback) {
+        process.stdout.write('\033c');
+        callback();
+    });
+*/

@@ -20,15 +20,17 @@ let connect = () => {
                 console.log(`>> construct connected to ${config.host}.`);
                 break;
             case 'cmd':
-                exec(msg.data.command.join(" "), (err, stdout, stderr) => {
-                    if (err) {
-                        return;
-                    }
-                    process.stdout.write(`>> ${stdout}`);
-                    process.stdout.write(`>> ${stderr}`);
+                exec(msg.data, (err, stdout, stderr) => {
                     ws.send(JSON.stringify({
                         type: "confirm"
                     }));
+                    if (err) {
+                        process.stdout.write(`>> ${err}`);
+                    } else if (stderr) {
+                        process.stdout.write(`>> ${stderr}`);
+                    } else {
+                        process.stdout.write(`>> ${stdout}`);
+                    }
                 })
                 break;
             case 'file':
@@ -51,6 +53,8 @@ let connect = () => {
     };
 }
 
+process.stdout.write('\033c');
+console.log(`====================\n      DysonIO       \n      r1-slave      \n====================\n>> ready for constructs!`)
 console.log(">> establishing connection...")
 
 connect();
@@ -58,7 +62,7 @@ connect();
 process.on('uncaughtException', function(err) {
     switch (err.code) {
         case 'ECONNREFUSED':
-            console.error(">> failed to connect. hovering...");
+            //console.error(">> failed to connect. hovering...");
             setTimeout(() => {
                 connect();
             }, 5000)
