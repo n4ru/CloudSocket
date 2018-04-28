@@ -1,4 +1,5 @@
 const fluidb = require('fluidb'),
+    exec = require('child_process').exec,
     config = new fluidb('config'),
     master = config.master,
     WebSocket = require('ws'),
@@ -19,7 +20,16 @@ let connect = () => {
                 console.log(`>> construct connected to ${config.host}.`);
                 break;
             case 'cmd':
-                console.log(msg)
+                exec(msg.data.command.join(" "), (err, stdout, stderr) => {
+                    if (err) {
+                        return;
+                    }
+                    process.stdout.write(`>> ${stdout}`);
+                    process.stdout.write(`>> ${stderr}`);
+                    ws.send(JSON.stringify({
+                        type: "confirm"
+                    }));
+                })
                 break;
             case 'file':
                 console.log(msg)
