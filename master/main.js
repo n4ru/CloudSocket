@@ -14,7 +14,8 @@ const fluidb = require('fluidb'),
     ProgressBar = require('progress'),
     wss = new WebSocketServer({
         port: port
-    });
+    }),
+    hearts = {};
 
 let cmd = setInterval(function() {
     if (connections.length > 0) {
@@ -32,16 +33,36 @@ var transmit = function(data) {
         } catch (err) {
             connections.splice(i, 1);
             vorpal.log(`>> construct disconnected [${connections.length} active constructs].`)
+            vorpal
+                .show().ui.delimiter('>>> ');
             continue;
         }
     }
 };
 
 var keepalive = setInterval(function() {
-    transmit({
-        type: "keepalive"
-    });
-}, 10000);
+    for (var i = 0; i < connections.length; i++) {
+        let randVal = Math.floor(Math.random() * 100000);
+        try {
+            connections[i].send(JSON.stringify({
+                type: "keepalive",
+                data: randVal
+            }));
+            hearts[randVal] = setInterval(function() {
+                connections.splice(i, 1);
+                vorpal.log(`>> construct disconnected [${connections.length} active constructs].`)
+                vorpal
+                    .show().ui.delimiter('>>> ');
+            }, 5000)
+        } catch (err) {
+            connections.splice(i, 1);
+            vorpal.log(`>> construct disconnected [${connections.length} active constructs].`)
+            vorpal
+                .show().ui.delimiter('>>> ');
+            continue;
+        }
+    }
+}, 15000);
 
 wss.on('connection', function(ws) {
     connections.push(ws);
@@ -75,6 +96,9 @@ wss.on('connection', function(ws) {
                 if (counter == connections.length) {
                     vorpal.ui.redraw.done();
                 }
+                break;
+            case "keepalive":
+                clearInterval(hearts[msg.data]);
                 break;
             default:
                 break;

@@ -18,6 +18,10 @@ let connect = () => {
         var msg = JSON.parse(event.data);
         switch (msg.type) {
             case 'keepalive':
+                ws.send(JSON.stringify({
+                    type: "keepalive",
+                    data: msg.data
+                }));
                 break;
             case 'connection':
                 break;
