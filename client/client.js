@@ -3,21 +3,23 @@ const fluidb = require('fluidb'),
     config = new fluidb('config'),
     master = config.master,
     WebSocket = require('ws'),
-    disc = true;
+    fs = require('fs');
 
 let connect = () => {
     ws = new WebSocket('ws://' + config.host + ':1337');
 
     ws.onopen = function() {
-        disc = false;
+        process.stdout.write('\033c');
+        console.log(`====================\n      DysonIO       \n      r1-slave      \n====================`);
         console.log(`>> construct connected to ${config.host}.`);
     }
 
     ws.onmessage = function(event) {
         var msg = JSON.parse(event.data);
         switch (msg.type) {
+            case 'keepalive':
+                break;
             case 'connection':
-                console.log(`>> construct connected to ${config.host}.`);
                 break;
             case 'cmd':
                 exec(msg.data, (err, stdout, stderr) => {
@@ -34,13 +36,24 @@ let connect = () => {
                 })
                 break;
             case 'file':
-                console.log(msg)
+                fs.writeFile(msg.filename, Buffer.from(msg.data), function(err) {
+                    if (err) {
+                        console.log(err);
+                        ws.send(JSON.stringify({
+                            type: "confirm"
+                        }));
+                    } else {
+                        console.log(">> wrote file " + msg.filename);
+                        ws.send(JSON.stringify({
+                            type: "confirm"
+                        }));
+                    }
+                });
                 break;
             case 'script':
                 console.log(msg)
                 break;
-            case 'default':
-                console.log(msg)
+            default:
                 break;
         }
     }
@@ -54,7 +67,7 @@ let connect = () => {
 }
 
 process.stdout.write('\033c');
-console.log(`====================\n      DysonIO       \n      r1-slave      \n====================\n>> ready for constructs!`)
+console.log(`====================\n      DysonIO       \n      r1-slave      \n====================\n>> ready for dyson!`)
 console.log(">> establishing connection...")
 
 connect();
@@ -62,7 +75,7 @@ connect();
 process.on('uncaughtException', function(err) {
     switch (err.code) {
         case 'ECONNREFUSED':
-            //console.error(">> failed to connect. hovering...");
+            console.error(">> failed to connect. hovering...");
             setTimeout(() => {
                 connect();
             }, 5000)

@@ -16,6 +16,13 @@ const fluidb = require('fluidb'),
         port: port
     });
 
+let cmd = setInterval(function() {
+    if (connections.length > 0) {
+        vorpal
+            .show().ui.delimiter('>>> ');
+    }
+}, 500);;
+
 let counter = 0;
 
 var transmit = function(data) {
@@ -30,11 +37,6 @@ var transmit = function(data) {
     }
 };
 
-let cmd = () => {
-    vorpal
-        .show().ui.delimiter('>>> ');
-}
-
 var keepalive = setInterval(function() {
     transmit({
         type: "keepalive"
@@ -46,18 +48,13 @@ wss.on('connection', function(ws) {
 
     vorpal
         .log(`>> construct connected [${connections.length} active constructs].`)
-    cmd();
 
     transmit({
         "type": "connection",
         "data": "connection established."
     });
 
-    ws.on('close', function() {
-        transmit({
-            type: "keepalive"
-        });
-    })
+    ws.on('close', function() {})
 
     ws.on('error', function() {
         vorpal.log(`>> construct error.`)
@@ -75,11 +72,11 @@ wss.on('connection', function(ws) {
                 vorpal.ui
                     .delimiter('>> ')
                     .redraw(`[${counter} / ${connections.length}] constructs have completed execution.`)
-                    .delimiter('>>> ')
                 if (counter == connections.length) {
                     vorpal.ui.redraw.done();
-                    //vorpal.log(`>> command completed successfully.`);
                 }
+                break;
+            default:
                 break;
         }
     })
@@ -91,41 +88,30 @@ process.stdout.write('\033c');
 vorpal
     .log(`====================\n      DysonIO       \n     r1-master      \n====================\n>> ready for constructs!`)
     .mode('>')
-    //.delimiter('')
     .action(function(command, callback) {
-        transmit({
-            "type": "cmd",
-            "data": command
-        });
-        counter = 0;
-        callback();
-    })
-    .on('client_command_executed', function(evt) {
-        process.exit(0)
+        if (command.split(" ")[0] == "push") {
+            try {
+                let file = fs.readFileSync(command.split(" ")[1]);
+                vorpal.log(">> sending over file")
+                transmit({
+                    "type": "file",
+                    "filename": command.split(" ")[1],
+                    "data": file.toString()
+                });
+                counter = 0;
+            } catch (err) {
+                this.log(">> file not found");
+            }
+            callback();
+        } else {
+            transmit({
+                "type": "cmd",
+                "data": command
+            });
+            counter = 0;
+            callback();
+        }
     });
 
 vorpal
     .exec('>');
-
-/*
-vorpal
-    .log(`====================\n      DysonIO       \n     r1-master      \n====================\n>> ready for constructs!`)
-    //.catch('[command...] <stuff...>', 'Execute a command.')
-    .action(function(args, callback) {
-        console.log(args);
-        transmit({
-            "type": "cmd",
-            "data": args
-        });
-        counter = 0;
-        callback();
-    });
-
-/*
-vorpal
-    .catch('clear', 'Execute a command.')
-    .action(function(args, callback) {
-        process.stdout.write('\033c');
-        callback();
-    });
-*/
