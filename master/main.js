@@ -42,14 +42,17 @@ var transmit = function(data) {
 
 var keepalive = setInterval(function() {
     for (var i = 0; i < connections.length; i++) {
-        let randVal = Math.floor(Math.random() * 100000);
+        let randVal = Math.floor(Math.random() * 10000000);
         try {
             connections[i].send(JSON.stringify({
                 type: "keepalive",
                 data: randVal
             }));
-            hearts[randVal] = setInterval(function() {
-                connections.splice(i, 1);
+            hearts[randVal] = {
+                id: i
+            };
+            hearts[randVal].timer = setTimeout(function() {
+                connections.splice(hearts[randVal].id, 1);
                 vorpal.log(`>> construct disconnected [${connections.length} active constructs].`)
                 vorpal
                     .show().ui.delimiter('>>> ');
@@ -98,7 +101,8 @@ wss.on('connection', function(ws) {
                 }
                 break;
             case "keepalive":
-                clearInterval(hearts[msg.data]);
+                clearTimeout(hearts[msg.data].timer);
+                delete hearts[msg.data];
                 break;
             default:
                 break;
